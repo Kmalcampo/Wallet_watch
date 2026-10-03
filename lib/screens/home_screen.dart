@@ -4,7 +4,6 @@ import 'package:provider/provider.dart';
 import '../providers/budget_provider.dart';
 import '../services/supabase_service.dart';
 import '../theme/app_theme.dart';
-import 'add_expense_screen.dart';
 import 'add_goal_screen.dart';
 import 'budget_period_completed_screen.dart';
 import 'savings_screen.dart';
@@ -375,15 +374,8 @@ class _HomeScreenState extends State<HomeScreen> {
                             _peso(budget.todaySpent),
                         extra:
                             'Remaining ${_peso(budget.remainingBalance)}',
-                        onTap: () {
-                          Navigator.push(
-                            context,
-                            MaterialPageRoute(
-                              builder: (_) =>
-                                  const AddExpenseScreen(),
-                            ),
-                          );
-                        },
+                        // No onTap — Home is view-only now. Adding an
+                        // expense happens from its own dedicated tab.
                       ),
 
                       const SizedBox(height: 12),

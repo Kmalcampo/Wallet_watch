@@ -8,10 +8,21 @@ import '../theme/app_theme.dart';
 class AddExpenseScreen extends StatefulWidget {
   final Expense? existingExpense;
 
+  /// When this screen is used as its own bottom-nav tab (rather than
+  /// pushed as a route to edit an expense), pass a callback here.
+  /// After a successful save it clears the form and calls this
+  /// instead of Navigator.pop — there's nothing to "go back" to when
+  /// this screen is a tab root, and clearing the form means it's
+  /// ready for the next entry the next time the tab is opened.
+  final VoidCallback? onSaved;
+
   const AddExpenseScreen({
     super.key,
     this.existingExpense,
+    this.onSaved,
   });
+
+  bool get isTab => onSaved != null;
 
   @override
   State<AddExpenseScreen> createState() =>
@@ -105,8 +116,6 @@ class _AddExpenseScreenState
 
       if (!mounted) return;
 
-      Navigator.pop(context);
-
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(
@@ -116,6 +125,21 @@ class _AddExpenseScreenState
           ),
         ),
       );
+
+      if (widget.isTab) {
+        // Tab mode: nothing to pop back to — clear the form so it's
+        // ready for the next entry, and let the parent (RootScreen)
+        // decide what happens next (e.g. switch back to Home).
+        _amountController.clear();
+        _noteController.clear();
+        setState(() {
+          _selectedCategory = ExpenseCategory.food;
+          _isSubmitting = false;
+        });
+        widget.onSaved!();
+      } else {
+        Navigator.pop(context);
+      }
     } catch (e) {
       if (!mounted) return;
 
@@ -212,14 +236,17 @@ class _AddExpenseScreenState
       appBar: AppBar(
         backgroundColor: Colors.transparent,
         elevation: 0,
-        leading: IconButton(
-          icon: const Icon(
-            Icons.arrow_back_ios_new_rounded,
-            size: 20,
-          ),
-          onPressed: () =>
-              Navigator.pop(context),
-        ),
+        automaticallyImplyLeading: false,
+        leading: widget.isTab
+            ? null
+            : IconButton(
+                icon: const Icon(
+                  Icons.arrow_back_ios_new_rounded,
+                  size: 20,
+                ),
+                onPressed: () =>
+                    Navigator.pop(context),
+              ),
         title: Text(
           _isEditing
               ? 'Edit Expense'

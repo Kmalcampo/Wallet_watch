@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 
-import '../theme/app_theme.dart';
 import 'add_expense_screen.dart';
 import 'history_screen.dart';
 import 'home_screen.dart';
@@ -16,18 +15,17 @@ class RootScreen extends StatefulWidget {
 class _RootScreenState extends State<RootScreen> {
   int _currentIndex = 0;
 
-  final List<Widget> _screens = [
-    HomeScreen(),
-    HistoryScreen(),
-    SavingsScreen(),
+  // "Add" is its own tab now rather than a floating button on top of
+  // Home/History — the dashboard stays purely for viewing, and this
+  // is the only place expenses get logged.
+  late final List<Widget> _screens = [
+    const HomeScreen(),
+    const HistoryScreen(),
+    AddExpenseScreen(
+      onSaved: () => setState(() => _currentIndex = 0),
+    ),
+    const SavingsScreen(),
   ];
-
-  void _openAddExpense() {
-    Navigator.push(
-      context,
-      MaterialPageRoute(builder: (_) => const AddExpenseScreen()),
-    );
-  }
 
   @override
   Widget build(BuildContext context) {
@@ -36,17 +34,6 @@ class _RootScreenState extends State<RootScreen> {
         index: _currentIndex,
         children: _screens,
       ),
-      floatingActionButton: _currentIndex == 0 || _currentIndex == 1
-          ? FloatingActionButton(
-              onPressed: _openAddExpense,
-              backgroundColor: AppTheme.primary,
-              foregroundColor: Colors.white,
-              elevation: 5,
-              shape: const CircleBorder(),
-              child: const Icon(Icons.add_rounded, size: 29),
-            )
-          : null,
-      floatingActionButtonLocation: FloatingActionButtonLocation.endFloat,
       bottomNavigationBar: BottomNavigationBar(
         currentIndex: _currentIndex,
         onTap: (index) {
@@ -55,7 +42,7 @@ class _RootScreenState extends State<RootScreen> {
           });
         },
         backgroundColor: Colors.white,
-        selectedItemColor: AppTheme.primary,
+        selectedItemColor: const Color(0xFF087F68),
         unselectedItemColor: const Color(0xFF78908A),
         type: BottomNavigationBarType.fixed,
         elevation: 12,
@@ -71,6 +58,11 @@ class _RootScreenState extends State<RootScreen> {
             icon: Icon(Icons.receipt_long_outlined),
             activeIcon: Icon(Icons.receipt_long_rounded),
             label: 'History',
+          ),
+          BottomNavigationBarItem(
+            icon: Icon(Icons.add_circle_outline),
+            activeIcon: Icon(Icons.add_circle),
+            label: 'Add',
           ),
           BottomNavigationBarItem(
             icon: Icon(Icons.flag_outlined),

@@ -1,3 +1,4 @@
+import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
@@ -5,7 +6,6 @@ import '../models/expense.dart';
 import '../providers/budget_provider.dart';
 import '../theme/app_theme.dart';
 import 'add_expense_screen.dart';
-import 'spending_breakdown_screen.dart';
 
 class HistoryScreen extends StatefulWidget {
   const HistoryScreen({super.key});
@@ -31,6 +31,18 @@ class _HistoryScreenState extends State<HistoryScreen> {
         : allExpenses.where((e) => e.category == _filter).toList();
     final period = budget.currentPeriod;
 
+    // Everything that counts as real spending for the chart — this
+    // now includes Load/Data (it was being silently dropped before).
+    // Savings Goal contributions are excluded since those are
+    // tracked as "Saved", not "Spent".
+    final chartEntries = budget.totalsByCategory.entries
+        .where((e) => e.key != ExpenseCategory.savings && e.value > 0)
+        .toList()
+      ..sort((a, b) => b.value.compareTo(a.value));
+    final chartTotal = chartEntries.fold(0.0, (sum, e) => sum + e.value);
+
+    final filteredTotal = expenses.fold(0.0, (sum, e) => sum + e.amount);
+
     return Scaffold(
       backgroundColor: AppTheme.background,
       appBar: AppBar(title: const Text('History')),
@@ -52,13 +64,6 @@ class _HistoryScreenState extends State<HistoryScreen> {
                   ),
                 ],
                 const SizedBox(height: 14),
-                for (final expense in expenses)
-                  _ExpenseTile(
-                    expense: expense,
-                    label: _label(expense.category),
-                    onTap: () => _showExpenseActions(context, expense),
-                  ),
-                const SizedBox(height: 16),
                 Container(
                   padding: const EdgeInsets.all(14),
                   decoration: BoxDecoration(
@@ -69,43 +74,37 @@ class _HistoryScreenState extends State<HistoryScreen> {
                   child: Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      const Text(
-                        'Total Spent',
-                        style: TextStyle(fontWeight: FontWeight.w700, color: AppTheme.textDark),
+                      Text(
+                        _filter == null ? 'Total Spent' : '${_label(_filter!)} Total',
+                        style: const TextStyle(fontWeight: FontWeight.w700, color: AppTheme.textDark),
                       ),
                       Text(
-                        '₱${budget.totalSpent.toStringAsFixed(0)}',
+                        '₱${filteredTotal.toStringAsFixed(0)}',
                         style: const TextStyle(fontWeight: FontWeight.w900, color: AppTheme.textDark),
                       ),
                     ],
                   ),
                 ),
+
+                // Only show the breakdown chart on "All" — it doesn't
+                // make sense once you've already filtered to one
+                // category.
+                if (_filter == null && chartEntries.isNotEmpty) ...[
+                  const SizedBox(height: 16),
+                  _InlineBreakdown(
+                    entries: chartEntries,
+                    total: chartTotal,
+                    labelOf: _label,
+                  ),
+                ],
+
                 const SizedBox(height: 16),
-                InkWell(
-                  borderRadius: BorderRadius.circular(16),
-                  onTap: () => Navigator.of(context).push(
-                    MaterialPageRoute(builder: (_) => SpendingBreakdownScreen()),
+                for (final expense in expenses)
+                  _ExpenseTile(
+                    expense: expense,
+                    label: _label(expense.category),
+                    onTap: () => _showExpenseActions(context, expense),
                   ),
-                  child: Container(
-                    padding: const EdgeInsets.all(16),
-                    decoration: BoxDecoration(
-                      color: Colors.white,
-                      borderRadius: BorderRadius.circular(16),
-                      border: Border.all(color: AppTheme.border),
-                    ),
-                    child: const Row(
-                      children: [
-                        Expanded(
-                          child: Text(
-                            'Spending Breakdown',
-                            style: TextStyle(fontWeight: FontWeight.w800, color: AppTheme.textDark),
-                          ),
-                        ),
-                        Icon(Icons.chevron_right, color: AppTheme.textMuted),
-                      ],
-                    ),
-                  ),
-                ),
               ],
             ),
     );
@@ -172,6 +171,116 @@ class _HistoryScreenState extends State<HistoryScreen> {
           ),
         );
       },
+    );
+  }
+}
+
+/// Feature: pie chart shown directly on History when viewing "All" —
+/// no extra tap needed.
+class _InlineBreakdown extends StatelessWidget {
+  final List<MapEntry<ExpenseCategory, double>> entries;
+  final double total;
+  final String Function(ExpenseCategory) labelOf;
+
+  const _InlineBreakdown({
+    required this.entries,
+    required this.total,
+    required this.labelOf,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: AppTheme.border),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text(
+            'Spending Breakdown',
+            style: TextStyle(fontWeight: FontWeight.w900, color: AppTheme.textDark),
+          ),
+          const SizedBox(height: 14),
+          SizedBox(
+            height: 170,
+            child: Stack(
+              alignment: Alignment.center,
+              children: [
+                PieChart(
+                  PieChartData(
+                    centerSpaceRadius: 46,
+                    sectionsSpace: 2,
+                    sections: [
+                      for (final entry in entries)
+                        PieChartSectionData(
+                          value: entry.value,
+                          color: categoryColors[entry.key],
+                          showTitle: false,
+                          radius: 36,
+                        ),
+                    ],
+                  ),
+                ),
+                Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const Text('Total', style: TextStyle(fontSize: 10, color: AppTheme.textMuted)),
+                    Text(
+                      '₱${total.toStringAsFixed(0)}',
+                      style: const TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.w900,
+                        color: AppTheme.textDark,
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 14),
+          for (final entry in entries)
+            Padding(
+              padding: const EdgeInsets.symmetric(vertical: 4),
+              child: Row(
+                children: [
+                  Container(
+                    width: 10,
+                    height: 10,
+                    decoration: BoxDecoration(
+                      color: categoryColors[entry.key],
+                      shape: BoxShape.circle,
+                    ),
+                  ),
+                  const SizedBox(width: 9),
+                  Expanded(
+                    child: Text(
+                      labelOf(entry.key),
+                      style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600),
+                    ),
+                  ),
+                  Text(
+                    '₱${entry.value.toStringAsFixed(0)}',
+                    style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w700),
+                  ),
+                  const SizedBox(width: 10),
+                  SizedBox(
+                    width: 34,
+                    child: Text(
+                      total == 0 ? '0%' : '${(entry.value / total * 100).round()}%',
+                      textAlign: TextAlign.right,
+                      style: const TextStyle(fontSize: 9, color: AppTheme.textMuted),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+        ],
+      ),
     );
   }
 }
