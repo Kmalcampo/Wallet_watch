@@ -155,7 +155,7 @@ class _HomeScreenState extends State<HomeScreen> {
                               'Good day, ${_getName()}! 👋',
                               style: const TextStyle(
                                 color: Colors.white,
-                                fontSize: 18,
+                                fontSize: 20,
                                 fontWeight: FontWeight.w900,
                               ),
                             ),
@@ -164,7 +164,7 @@ class _HomeScreenState extends State<HomeScreen> {
                               'Stay on track with your goals!',
                               style: TextStyle(
                                 color: Colors.white70,
-                                fontSize: 10,
+                                fontSize: 12,
                               ),
                             ),
                           ],
@@ -213,7 +213,7 @@ class _HomeScreenState extends State<HomeScreen> {
                             const Text(
                               'Remaining Balance',
                               style: TextStyle(
-                                fontSize: 11,
+                                fontSize: 13,
                                 fontWeight: FontWeight.w800,
                                 color: AppTheme.textDark,
                               ),
@@ -226,7 +226,7 @@ class _HomeScreenState extends State<HomeScreen> {
                                 budget.remainingBalance,
                               ),
                               style: const TextStyle(
-                                fontSize: 28,
+                                fontSize: 30,
                                 fontWeight: FontWeight.w900,
                                 color: AppTheme.primaryDark,
                               ),
@@ -259,7 +259,7 @@ class _HomeScreenState extends State<HomeScreen> {
                                 Text(
                                   'of ${_peso(period.allowanceAmount)} allowance',
                                   style: const TextStyle(
-                                    fontSize: 9,
+                                    fontSize: 11,
                                     color:
                                         AppTheme.textMuted,
                                   ),
@@ -288,7 +288,7 @@ class _HomeScreenState extends State<HomeScreen> {
                                             .shrinkWrap,
                                     textStyle:
                                         const TextStyle(
-                                      fontSize: 10,
+                                      fontSize: 12,
                                       fontWeight:
                                           FontWeight.w800,
                                     ),
@@ -404,7 +404,7 @@ class _HomeScreenState extends State<HomeScreen> {
                                   Text(
                                     'Keep going!',
                                     style: TextStyle(
-                                      fontSize: 11,
+                                      fontSize: 13,
                                       fontWeight:
                                           FontWeight.w900,
                                       color:
@@ -415,7 +415,7 @@ class _HomeScreenState extends State<HomeScreen> {
                                   Text(
                                     "You're on track with your goals.",
                                     style: TextStyle(
-                                      fontSize: 9,
+                                      fontSize: 11,
                                       color:
                                           AppTheme.textMuted,
                                     ),
@@ -628,7 +628,7 @@ class _HomeScreenState extends State<HomeScreen> {
                 const Text(
                   'Low Balance',
                   style: TextStyle(
-                    fontSize: 19,
+                    fontSize: 20,
                     fontWeight: FontWeight.w900,
                     color: AppTheme.textDark,
                   ),
@@ -640,7 +640,7 @@ class _HomeScreenState extends State<HomeScreen> {
                   'You only have ${_peso(remaining)} remaining with $daysLeft ${daysLeft == 1 ? 'day' : 'days'} left in this budget period.',
                   textAlign: TextAlign.center,
                   style: const TextStyle(
-                    fontSize: 11,
+                    fontSize: 13,
                     color: AppTheme.textMuted,
                     height: 1.45,
                   ),
@@ -705,7 +705,7 @@ class _GoalsPreview extends StatelessWidget {
             const Text(
               'Your Goals',
               style: TextStyle(
-                fontSize: 12,
+                fontSize: 14,
                 fontWeight: FontWeight.w900,
                 color: AppTheme.textDark,
               ),
@@ -723,7 +723,7 @@ class _GoalsPreview extends StatelessWidget {
                 ),
                 child: const Text(
                   'View All',
-                  style: TextStyle(fontSize: 10, fontWeight: FontWeight.w800),
+                  style: TextStyle(fontSize: 12, fontWeight: FontWeight.w800),
                 ),
               ),
           ],
@@ -765,7 +765,7 @@ class _GoalsPreview extends StatelessWidget {
                   const Text(
                     "Set your first savings goal",
                     style: TextStyle(
-                      fontSize: 11,
+                      fontSize: 13,
                       fontWeight: FontWeight.w800,
                       color: AppTheme.textDark,
                     ),
@@ -774,7 +774,7 @@ class _GoalsPreview extends StatelessWidget {
                   const Text(
                     "Something to save up for, like headphones or shoes.",
                     textAlign: TextAlign.center,
-                    style: TextStyle(fontSize: 9, color: AppTheme.textMuted),
+                    style: TextStyle(fontSize: 11, color: AppTheme.textMuted),
                   ),
                 ],
               ),
@@ -800,7 +800,7 @@ class _GoalsPreview extends StatelessWidget {
                       shape: BoxShape.circle,
                     ),
                     alignment: Alignment.center,
-                    child: Text(goal.emoji, style: const TextStyle(fontSize: 17)),
+                    child: Text(goal.emoji, style: const TextStyle(fontSize: 18)),
                   ),
                   const SizedBox(width: 10),
                   Expanded(
@@ -810,7 +810,7 @@ class _GoalsPreview extends StatelessWidget {
                         Text(
                           goal.title,
                           style: const TextStyle(
-                            fontSize: 10,
+                            fontSize: 12,
                             fontWeight: FontWeight.w800,
                             color: AppTheme.textDark,
                           ),
@@ -834,7 +834,7 @@ class _GoalsPreview extends StatelessWidget {
                   Text(
                     '${(goal.progress * 100).round()}%',
                     style: const TextStyle(
-                      fontSize: 10,
+                      fontSize: 12,
                       fontWeight: FontWeight.w900,
                       color: AppTheme.primaryDark,
                     ),
@@ -890,7 +890,7 @@ class _SmallCard extends StatelessWidget {
               Text(
                 title,
                 style: const TextStyle(
-                  fontSize: 9,
+                  fontSize: 11,
                   color: AppTheme.textMuted,
                 ),
               ),
@@ -898,7 +898,7 @@ class _SmallCard extends StatelessWidget {
               Text(
                 value,
                 style: TextStyle(
-                  fontSize: 15,
+                  fontSize: 16,
                   fontWeight: FontWeight.w900,
                   color: valueColor,
                 ),
@@ -940,7 +940,7 @@ class _SmallCard extends StatelessWidget {
             Text(
               title,
               style: const TextStyle(
-                fontSize: 9,
+                fontSize: 11,
                 color: AppTheme.textMuted,
               ),
             ),
@@ -948,7 +948,7 @@ class _SmallCard extends StatelessWidget {
             Text(
               value,
               style: TextStyle(
-                fontSize: 17,
+                fontSize: 18,
                 fontWeight: FontWeight.w900,
                 color: valueColor,
               ),
@@ -1030,7 +1030,7 @@ class _InfoCard extends StatelessWidget {
                   Text(
                     title,
                     style: const TextStyle(
-                      fontSize: 10,
+                      fontSize: 12,
                       fontWeight: FontWeight.w800,
                       color: AppTheme.textDark,
                     ),
@@ -1039,7 +1039,7 @@ class _InfoCard extends StatelessWidget {
                   Text(
                     subtitle,
                     style: const TextStyle(
-                      fontSize: 9,
+                      fontSize: 11,
                       color: AppTheme.textMuted,
                     ),
                   ),
@@ -1047,7 +1047,7 @@ class _InfoCard extends StatelessWidget {
                   Text(
                     extra,
                     style: const TextStyle(
-                      fontSize: 9,
+                      fontSize: 11,
                       fontWeight: FontWeight.w800,
                       color: AppTheme.primary,
                     ),

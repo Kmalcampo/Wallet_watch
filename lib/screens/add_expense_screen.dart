@@ -5,6 +5,12 @@ import '../models/expense.dart';
 import '../providers/budget_provider.dart';
 import '../theme/app_theme.dart';
 
+const _sectionLabelStyle = TextStyle(
+  fontSize: 15,
+  fontWeight: FontWeight.w700,
+  color: AppTheme.textDark,
+);
+
 class AddExpenseScreen extends StatefulWidget {
   final Expense? existingExpense;
 
@@ -12,8 +18,7 @@ class AddExpenseScreen extends StatefulWidget {
   /// pushed as a route to edit an expense), pass a callback here.
   /// After a successful save it clears the form and calls this
   /// instead of Navigator.pop — there's nothing to "go back" to when
-  /// this screen is a tab root, and clearing the form means it's
-  /// ready for the next entry the next time the tab is opened.
+  /// this screen is a tab root.
   final VoidCallback? onSaved;
 
   const AddExpenseScreen({
@@ -25,12 +30,10 @@ class AddExpenseScreen extends StatefulWidget {
   bool get isTab => onSaved != null;
 
   @override
-  State<AddExpenseScreen> createState() =>
-      _AddExpenseScreenState();
+  State<AddExpenseScreen> createState() => _AddExpenseScreenState();
 }
 
-class _AddExpenseScreenState
-    extends State<AddExpenseScreen> {
+class _AddExpenseScreenState extends State<AddExpenseScreen> {
   late final TextEditingController _amountController;
   late final TextEditingController _noteController;
 
@@ -38,8 +41,7 @@ class _AddExpenseScreenState
 
   bool _isSubmitting = false;
 
-  bool get _isEditing =>
-      widget.existingExpense != null;
+  bool get _isEditing => widget.existingExpense != null;
 
   @override
   void initState() {
@@ -48,17 +50,14 @@ class _AddExpenseScreenState
     final expense = widget.existingExpense;
 
     _amountController = TextEditingController(
-      text: expense == null
-          ? ''
-          : expense.amount.toStringAsFixed(2),
+      text: expense == null ? '' : expense.amount.toStringAsFixed(2),
     );
 
     _noteController = TextEditingController(
       text: expense?.note ?? '',
     );
 
-    _selectedCategory =
-        expense?.category ?? ExpenseCategory.food;
+    _selectedCategory = expense?.category ?? ExpenseCategory.food;
   }
 
   @override
@@ -72,6 +71,21 @@ class _AddExpenseScreenState
     return '₱${value.toStringAsFixed(2)}';
   }
 
+  /// Quick-amount chips add to whatever is already typed, so tapping
+  /// +₱50 twice gives ₱100.
+  void _addQuick(double value) {
+    final current = double.tryParse(_amountController.text.trim()) ?? 0;
+    final next = current + value;
+
+    _amountController.text = next == next.roundToDouble()
+        ? next.toStringAsFixed(0)
+        : next.toStringAsFixed(2);
+    _amountController.selection = TextSelection.collapsed(
+      offset: _amountController.text.length,
+    );
+    setState(() {});
+  }
+
   Future<void> _submit() async {
     final amount = double.tryParse(
       _amountController.text.trim(),
@@ -80,9 +94,7 @@ class _AddExpenseScreenState
     if (amount == null || amount <= 0) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text(
-            'Please enter a valid amount.',
-          ),
+          content: Text('Please enter a valid amount.'),
         ),
       );
       return;
@@ -149,17 +161,13 @@ class _AddExpenseScreenState
 
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text(
-            'Could not save expense: $e',
-          ),
+          content: Text('Could not save expense: $e'),
         ),
       );
     }
   }
 
-  Color _categoryColor(
-    ExpenseCategory category,
-  ) {
+  Color _categoryColor(ExpenseCategory category) {
     switch (category) {
       case ExpenseCategory.food:
         return const Color(0xFFFF5961);
@@ -181,9 +189,7 @@ class _AddExpenseScreenState
     }
   }
 
-  IconData _categoryIcon(
-    ExpenseCategory category,
-  ) {
+  IconData _categoryIcon(ExpenseCategory category) {
     switch (category) {
       case ExpenseCategory.food:
         return Icons.restaurant_rounded;
@@ -205,9 +211,7 @@ class _AddExpenseScreenState
     }
   }
 
-  String _categoryLabel(
-    ExpenseCategory category,
-  ) {
+  String _categoryLabel(ExpenseCategory category) {
     switch (category) {
       case ExpenseCategory.food:
         return 'Food';
@@ -234,8 +238,6 @@ class _AddExpenseScreenState
     return Scaffold(
       backgroundColor: AppTheme.background,
       appBar: AppBar(
-        backgroundColor: Colors.transparent,
-        elevation: 0,
         automaticallyImplyLeading: false,
         leading: widget.isTab
             ? null
@@ -244,103 +246,116 @@ class _AddExpenseScreenState
                   Icons.arrow_back_ios_new_rounded,
                   size: 20,
                 ),
-                onPressed: () =>
-                    Navigator.pop(context),
+                onPressed: () => Navigator.pop(context),
               ),
-        title: Text(
-          _isEditing
-              ? 'Edit Expense'
-              : 'Add Expense',
-          style: const TextStyle(
-            fontSize: 20,
-            fontWeight: FontWeight.w900,
-            color: AppTheme.textDark,
-          ),
-        ),
+        title: Text(_isEditing ? 'Edit Expense' : 'Add Expense'),
       ),
       body: SafeArea(
         top: false,
         child: ListView(
-          padding: const EdgeInsets.fromLTRB(
-            16,
-            8,
-            16,
-            30,
-          ),
+          padding: const EdgeInsets.fromLTRB(16, 8, 16, 30),
           children: [
-            const Text(
-              'Amount',
-              style: TextStyle(
-                fontSize: 12,
-                fontWeight: FontWeight.w800,
-                color: AppTheme.textDark,
+            // AMOUNT
+            Container(
+              padding: const EdgeInsets.fromLTRB(20, 18, 20, 18),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(20),
+                border: Border.all(color: AppTheme.border),
               ),
-            ),
-
-            const SizedBox(height: 7),
-
-            TextField(
-              controller: _amountController,
-              keyboardType:
-                  const TextInputType.numberWithOptions(
-                decimal: true,
-              ),
-              textAlign: TextAlign.left,
-              style: const TextStyle(
-                fontSize: 19,
-                fontWeight: FontWeight.w800,
-              ),
-              decoration: InputDecoration(
-                prefixText: '₱  ',
-                prefixStyle: const TextStyle(
-                  fontSize: 18,
-                  fontWeight: FontWeight.w900,
-                  color: AppTheme.textDark,
-                ),
-                hintText: '0.00',
-                hintStyle: const TextStyle(
-                  color: Color(0xFF9AA9A3),
-                ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text(
+                    'How much did you spend?',
+                    style: TextStyle(
+                      fontSize: 13,
+                      fontWeight: FontWeight.w500,
+                      color: AppTheme.textMuted,
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  Row(
+                    crossAxisAlignment: CrossAxisAlignment.center,
+                    children: [
+                      const Text(
+                        '₱',
+                        style: TextStyle(
+                          fontSize: 34,
+                          fontWeight: FontWeight.w700,
+                          color: AppTheme.primary,
+                        ),
+                      ),
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: TextField(
+                          controller: _amountController,
+                          keyboardType:
+                              const TextInputType.numberWithOptions(
+                            decimal: true,
+                          ),
+                          cursorColor: AppTheme.primary,
+                          style: const TextStyle(
+                            fontSize: 38,
+                            fontWeight: FontWeight.w800,
+                            color: AppTheme.textDark,
+                          ),
+                          decoration: const InputDecoration(
+                            hintText: '0.00',
+                            hintStyle: TextStyle(
+                              fontSize: 38,
+                              fontWeight: FontWeight.w800,
+                              color: Color(0xFFCBD6D2),
+                            ),
+                            border: InputBorder.none,
+                            enabledBorder: InputBorder.none,
+                            focusedBorder: InputBorder.none,
+                            filled: false,
+                            isCollapsed: true,
+                            contentPadding: EdgeInsets.zero,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 14),
+                  Wrap(
+                    spacing: 8,
+                    runSpacing: 8,
+                    children: [
+                      for (final value in const [20, 50, 100, 200])
+                        _QuickChip(
+                          label: '+₱$value',
+                          onTap: () => _addQuick(value.toDouble()),
+                        ),
+                    ],
+                  ),
+                ],
               ),
             ),
 
             const SizedBox(height: 24),
 
-            const Text(
-              'Category',
-              style: TextStyle(
-                fontSize: 12,
-                fontWeight: FontWeight.w800,
-                color: AppTheme.textDark,
-              ),
-            ),
+            // CATEGORY
+            const Text('Category', style: _sectionLabelStyle),
 
-            const SizedBox(height: 9),
+            const SizedBox(height: 12),
 
             GridView.builder(
               shrinkWrap: true,
-              physics:
-                  const NeverScrollableScrollPhysics(),
+              physics: const NeverScrollableScrollPhysics(),
               itemCount: ExpenseCategory.values.length,
               gridDelegate:
                   const SliverGridDelegateWithFixedCrossAxisCount(
-                crossAxisCount: 2,
-                mainAxisSpacing: 9,
-                crossAxisSpacing: 9,
-                childAspectRatio: 2.9,
+                crossAxisCount: 3,
+                mainAxisSpacing: 10,
+                crossAxisSpacing: 10,
+                childAspectRatio: 1.05,
               ),
-              itemBuilder: (
-                context,
-                index,
-              ) {
-                final category =
-                    ExpenseCategory.values[index];
-
-                final selected =
-                    _selectedCategory == category;
-
-                final color =
-                    _categoryColor(category);
+              itemBuilder: (context, index) {
+                final category = ExpenseCategory.values[index];
+                final selected = _selectedCategory == category;
+                final color = _categoryColor(category);
 
                 return InkWell(
                   onTap: () {
@@ -348,60 +363,50 @@ class _AddExpenseScreenState
                       _selectedCategory = category;
                     });
                   },
-                  borderRadius:
-                      BorderRadius.circular(12),
+                  borderRadius: BorderRadius.circular(16),
                   child: AnimatedContainer(
-                    duration:
-                        const Duration(milliseconds: 150),
-                    padding:
-                        const EdgeInsets.symmetric(
-                      horizontal: 10,
+                    duration: const Duration(milliseconds: 160),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 6,
+                      vertical: 10,
                     ),
                     decoration: BoxDecoration(
                       color: selected
-                          ? color.withOpacity(0.10)
+                          ? color.withValues(alpha: 0.10)
                           : Colors.white,
-                      borderRadius:
-                          BorderRadius.circular(12),
+                      borderRadius: BorderRadius.circular(16),
                       border: Border.all(
-                        color: selected
-                            ? color.withOpacity(0.5)
-                            : const Color(
-                                0xFFE0E7E3,
-                              ),
-                        width: selected ? 1.4 : 1,
+                        color: selected ? color : AppTheme.border,
+                        width: selected ? 2 : 1,
                       ),
                     ),
-                    child: Row(
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
                       children: [
                         Container(
-                          width: 29,
-                          height: 29,
-                          decoration:
-                              BoxDecoration(
-                            color:
-                                color.withOpacity(0.13),
+                          width: 42,
+                          height: 42,
+                          decoration: BoxDecoration(
+                            color: color.withValues(alpha: 0.15),
                             shape: BoxShape.circle,
                           ),
                           child: Icon(
                             _categoryIcon(category),
                             color: color,
-                            size: 15,
+                            size: 22,
                           ),
                         ),
-
-                        const SizedBox(width: 7),
-
-                        Expanded(
+                        const SizedBox(height: 8),
+                        FittedBox(
+                          fit: BoxFit.scaleDown,
                           child: Text(
                             _categoryLabel(category),
                             maxLines: 1,
-                            overflow:
-                                TextOverflow.ellipsis,
                             style: TextStyle(
-                              fontSize: 9.5,
-                              fontWeight:
-                                  FontWeight.w800,
+                              fontSize: 12.5,
+                              fontWeight: selected
+                                  ? FontWeight.w700
+                                  : FontWeight.w600,
                               color: AppTheme.textDark,
                             ),
                           ),
@@ -413,57 +418,85 @@ class _AddExpenseScreenState
               },
             ),
 
-            const SizedBox(height: 23),
+            const SizedBox(height: 24),
 
-            const Text(
-              'Note (optional)',
-              style: TextStyle(
-                fontSize: 12,
-                fontWeight: FontWeight.w800,
-                color: AppTheme.textDark,
-              ),
-            ),
+            // NOTE
+            const Text('Note (optional)', style: _sectionLabelStyle),
 
-            const SizedBox(height: 7),
+            const SizedBox(height: 10),
 
             TextField(
               controller: _noteController,
               maxLines: 3,
+              textCapitalization: TextCapitalization.sentences,
+              style: const TextStyle(
+                fontSize: 14,
+                color: AppTheme.textDark,
+              ),
               decoration: const InputDecoration(
                 hintText: 'e.g. Lunch at school',
-                hintStyle: TextStyle(
-                  fontSize: 11,
-                  color: Color(0xFF9AA9A3),
-                ),
               ),
             ),
 
-            const SizedBox(height: 25),
+            const SizedBox(height: 28),
 
             SizedBox(
-              height: 52,
+              height: 54,
               width: double.infinity,
               child: ElevatedButton(
-                onPressed:
-                    _isSubmitting ? null : _submit,
+                onPressed: _isSubmitting ? null : _submit,
                 child: _isSubmitting
                     ? const SizedBox(
-                        width: 21,
-                        height: 21,
-                        child:
-                            CircularProgressIndicator(
+                        width: 22,
+                        height: 22,
+                        child: CircularProgressIndicator(
                           strokeWidth: 2.2,
                           color: Colors.white,
                         ),
                       )
-                    : Text(
-                        _isEditing
-                            ? 'Save Changes'
-                            : 'Add Expense',
+                    : Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          const Icon(Icons.check_rounded, size: 20),
+                          const SizedBox(width: 8),
+                          Text(
+                            _isEditing ? 'Save Changes' : 'Add Expense',
+                          ),
+                        ],
                       ),
               ),
             ),
           ],
+        ),
+      ),
+    );
+  }
+}
+
+class _QuickChip extends StatelessWidget {
+  final String label;
+  final VoidCallback onTap;
+
+  const _QuickChip({required this.label, required this.onTap});
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: AppTheme.primary.withValues(alpha: 0.10),
+      shape: const StadiumBorder(),
+      child: InkWell(
+        customBorder: const StadiumBorder(),
+        onTap: onTap,
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+          child: Text(
+            label,
+            style: const TextStyle(
+              fontSize: 13,
+              fontWeight: FontWeight.w700,
+              color: AppTheme.primary,
+            ),
+          ),
         ),
       ),
     );

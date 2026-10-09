@@ -7,6 +7,29 @@ import '../providers/budget_provider.dart';
 import '../theme/app_theme.dart';
 import 'add_expense_screen.dart';
 
+const _months = [
+  'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
+  'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec',
+];
+
+/// Whole pesos show without decimals (₱120), otherwise two decimals.
+String _peso(double v) {
+  return v == v.roundToDouble()
+      ? '₱${v.toStringAsFixed(0)}'
+      : '₱${v.toStringAsFixed(2)}';
+}
+
+String _categoryName(ExpenseCategory category) {
+  if (category == ExpenseCategory.supplies) return 'Projects';
+  return category.label;
+}
+
+class _DayGroup {
+  final DateTime day;
+  final List<Expense> items;
+  _DayGroup(this.day, this.items);
+}
+
 class HistoryScreen extends StatefulWidget {
   const HistoryScreen({super.key});
 
@@ -17,157 +40,274 @@ class HistoryScreen extends StatefulWidget {
 class _HistoryScreenState extends State<HistoryScreen> {
   ExpenseCategory? _filter; // null = "All"
 
-  String _label(ExpenseCategory category) {
-    if (category == ExpenseCategory.supplies) return 'Projects';
-    return category.label;
+  String _dayHeader(DateTime day) {
+    final now = DateTime.now();
+    final today = DateTime(now.year, now.month, now.day);
+    final diff = today.difference(day).inDays;
+
+    if (diff == 0) return 'Today';
+    if (diff == 1) return 'Yesterday';
+    return '${_months[day.month - 1]} ${day.day}, ${day.year}';
+  }
+
+  List<_DayGroup> _group(List<Expense> sorted) {
+    final groups = <_DayGroup>[];
+    for (final e in sorted) {
+      final key = DateTime(e.date.year, e.date.month, e.date.day);
+      if (groups.isNotEmpty && groups.last.day == key) {
+        groups.last.items.add(e);
+      } else {
+        groups.add(_DayGroup(key, [e]));
+      }
+    }
+    return groups;
+  }
+
+  /// Savings goal contributions aren't "spending", so they're left out
+  /// of the day totals unless the Savings filter is selected.
+  double _dayTotal(List<Expense> items) {
+    return items
+        .where((e) =>
+            _filter == ExpenseCategory.savings ||
+            e.category != ExpenseCategory.savings)
+        .fold(0.0, (sum, e) => sum + e.amount);
   }
 
   @override
   Widget build(BuildContext context) {
     final budget = context.watch<BudgetProvider>();
-    final allExpenses = budget.expenses;
-    final expenses = _filter == null
-        ? allExpenses
-        : allExpenses.where((e) => e.category == _filter).toList();
+    final all = budget.expenses;
+    final filtered = _filter == null
+        ? all
+        : all.where((e) => e.category == _filter).toList();
+    final sorted = [...filtered]..sort((a, b) => b.date.compareTo(a.date));
+    final groups = _group(sorted);
     final period = budget.currentPeriod;
 
-    // Everything that counts as real spending for the chart — this
-    // now includes Load/Data (it was being silently dropped before).
-    // Savings Goal contributions are excluded since those are
-    // tracked as "Saved", not "Spent".
     final chartEntries = budget.totalsByCategory.entries
         .where((e) => e.key != ExpenseCategory.savings && e.value > 0)
         .toList()
       ..sort((a, b) => b.value.compareTo(a.value));
     final chartTotal = chartEntries.fold(0.0, (sum, e) => sum + e.value);
 
-    final filteredTotal = expenses.fold(0.0, (sum, e) => sum + e.amount);
+    final heroTitle =
+        _filter == null ? 'Total Spent' : '${_categoryName(_filter!)} Total';
+    final heroAmount = _filter == null
+        ? budget.totalSpent
+        : filtered.fold(0.0, (sum, e) => sum + e.amount);
+
+    String? periodText;
+    if (period != null) {
+      periodText =
+          '${_months[period.startDate.month - 1]} ${period.startDate.day} – '
+          '${_months[period.endDate.month - 1]} ${period.endDate.day}';
+    }
 
     return Scaffold(
       backgroundColor: AppTheme.background,
-      appBar: AppBar(title: const Text('History')),
-      body: allExpenses.isEmpty
-          ? const Center(child: Text('No expenses logged yet.'))
+      appBar: AppBar(
+        automaticallyImplyLeading: false,
+        title: const Text('History'),
+      ),
+      body: all.isEmpty
+          ? const _EmptyHistory()
           : ListView(
-              padding: const EdgeInsets.fromLTRB(16, 0, 16, 24),
+              padding: const EdgeInsets.fromLTRB(16, 4, 16, 28),
               children: [
-                _CategoryFilterRow(
-                  selected: _filter,
-                  onSelected: (c) => setState(() => _filter = c),
-                  labelOf: _label,
+                _SummaryCard(
+                  title: heroTitle,
+                  amount: heroAmount,
+                  periodText: periodText,
+                  count: filtered.length,
+                  saved: _filter == null && budget.totalSaved > 0
+                      ? budget.totalSaved
+                      : null,
                 ),
-                if (period != null) ...[
-                  const SizedBox(height: 10),
-                  Text(
-                    '${_fmt(period.startDate)} – ${_fmt(period.endDate)}',
-                    style: const TextStyle(color: AppTheme.textMuted, fontSize: 13),
-                  ),
-                ],
-                const SizedBox(height: 14),
-                Container(
-                  padding: const EdgeInsets.all(14),
-                  decoration: BoxDecoration(
-                    color: Colors.white,
-                    borderRadius: BorderRadius.circular(16),
-                    border: Border.all(color: AppTheme.border),
-                  ),
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      Text(
-                        _filter == null ? 'Total Spent' : '${_label(_filter!)} Total',
-                        style: const TextStyle(fontWeight: FontWeight.w700, color: AppTheme.textDark),
-                      ),
-                      Text(
-                        '₱${filteredTotal.toStringAsFixed(0)}',
-                        style: const TextStyle(fontWeight: FontWeight.w900, color: AppTheme.textDark),
-                      ),
-                    ],
+                const SizedBox(height: 16),
+                SizedBox(
+                  height: 40,
+                  child: _CategoryFilterRow(
+                    selected: _filter,
+                    onSelected: (c) => setState(() => _filter = c),
                   ),
                 ),
 
-                // Only show the breakdown chart on "All" — it doesn't
-                // make sense once you've already filtered to one
-                // category.
+                // The breakdown chart only makes sense across all
+                // categories, so it's hidden once you filter to one.
                 if (_filter == null && chartEntries.isNotEmpty) ...[
                   const SizedBox(height: 16),
                   _InlineBreakdown(
                     entries: chartEntries,
                     total: chartTotal,
-                    labelOf: _label,
                   ),
                 ],
 
-                const SizedBox(height: 16),
-                for (final expense in expenses)
-                  _ExpenseTile(
-                    expense: expense,
-                    label: _label(expense.category),
-                    onTap: () => _showExpenseActions(context, expense),
-                  ),
+                const SizedBox(height: 20),
+
+                if (groups.isEmpty)
+                  _NoResults(label: _categoryName(_filter!))
+                else
+                  for (final group in groups) ...[
+                    _DayHeader(
+                      title: _dayHeader(group.day),
+                      total: _dayTotal(group.items),
+                    ),
+                    for (final expense in group.items)
+                      _ExpenseTile(
+                        expense: expense,
+                        onTap: () => _showExpenseActions(context, expense),
+                      ),
+                    const SizedBox(height: 8),
+                  ],
               ],
             ),
     );
   }
 
-  String _fmt(DateTime d) => '${_month(d.month)} ${d.day}';
-  String _month(int m) => const [
-        'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
-        'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'
-      ][m - 1];
-
   void _showExpenseActions(BuildContext context, Expense expense) {
     showModalBottomSheet(
       context: context,
+      backgroundColor: Colors.white,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      ),
       builder: (sheetContext) {
+        final color = categoryColors[expense.category] ?? Colors.grey;
+
         return SafeArea(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              ListTile(
-                leading: const Icon(Icons.edit_outlined),
-                title: const Text('Edit'),
-                onTap: () {
-                  Navigator.pop(sheetContext);
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                      builder: (_) => AddExpenseScreen(existingExpense: expense),
-                    ),
-                  );
-                },
-              ),
-              ListTile(
-                leading: const Icon(Icons.delete_outline, color: Colors.red),
-                title: const Text('Delete', style: TextStyle(color: Colors.red)),
-                onTap: () async {
-                  Navigator.pop(sheetContext);
-                  final confirmed = await showDialog<bool>(
-                    context: context,
-                    builder: (dialogContext) => AlertDialog(
-                      title: const Text('Delete this expense?'),
-                      content: Text(
-                        '${expense.category.emoji} ₱${expense.amount.toStringAsFixed(2)} '
-                        '— this can\'t be undone.',
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(20, 10, 20, 12),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Container(
+                  width: 40,
+                  height: 4,
+                  decoration: BoxDecoration(
+                    color: AppTheme.border,
+                    borderRadius: BorderRadius.circular(4),
+                  ),
+                ),
+                const SizedBox(height: 18),
+                Row(
+                  children: [
+                    Container(
+                      width: 48,
+                      height: 48,
+                      decoration: BoxDecoration(
+                        color: color.withValues(alpha: 0.14),
+                        shape: BoxShape.circle,
                       ),
-                      actions: [
-                        TextButton(
-                          onPressed: () => Navigator.pop(dialogContext, false),
-                          child: const Text('Cancel'),
-                        ),
-                        TextButton(
-                          onPressed: () => Navigator.pop(dialogContext, true),
-                          child: const Text('Delete', style: TextStyle(color: Colors.red)),
-                        ),
-                      ],
+                      alignment: Alignment.center,
+                      child: Text(
+                        expense.category.emoji,
+                        style: const TextStyle(fontSize: 22),
+                      ),
                     ),
-                  );
-                  if (confirmed == true && context.mounted) {
-                    context.read<BudgetProvider>().deleteExpense(expense.id);
-                  }
-                },
-              ),
-            ],
+                    const SizedBox(width: 14),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            _categoryName(expense.category),
+                            style: const TextStyle(
+                              fontSize: 16,
+                              fontWeight: FontWeight.w700,
+                              color: AppTheme.textDark,
+                            ),
+                          ),
+                          const SizedBox(height: 2),
+                          Text(
+                            _peso(expense.amount),
+                            style: const TextStyle(
+                              fontSize: 14,
+                              color: AppTheme.textMuted,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 14),
+                const Divider(height: 1, color: AppTheme.border),
+                ListTile(
+                  contentPadding: EdgeInsets.zero,
+                  leading: const Icon(
+                    Icons.edit_outlined,
+                    color: AppTheme.textDark,
+                  ),
+                  title: const Text(
+                    'Edit expense',
+                    style: TextStyle(fontSize: 15, fontWeight: FontWeight.w600),
+                  ),
+                  onTap: () {
+                    Navigator.pop(sheetContext);
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) => AddExpenseScreen(existingExpense: expense),
+                      ),
+                    );
+                  },
+                ),
+                ListTile(
+                  contentPadding: EdgeInsets.zero,
+                  leading: const Icon(
+                    Icons.delete_outline_rounded,
+                    color: AppTheme.danger,
+                  ),
+                  title: const Text(
+                    'Delete expense',
+                    style: TextStyle(
+                      fontSize: 15,
+                      fontWeight: FontWeight.w600,
+                      color: AppTheme.danger,
+                    ),
+                  ),
+                  onTap: () async {
+                    Navigator.pop(sheetContext);
+                    final confirmed = await showDialog<bool>(
+                      context: context,
+                      builder: (dialogContext) => AlertDialog(
+                        backgroundColor: Colors.white,
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(20),
+                        ),
+                        title: const Text(
+                          'Delete this expense?',
+                          style: TextStyle(fontWeight: FontWeight.w700),
+                        ),
+                        content: Text(
+                          '${expense.category.emoji} ${_peso(expense.amount)} '
+                          '— this can\'t be undone.',
+                        ),
+                        actions: [
+                          TextButton(
+                            onPressed: () => Navigator.pop(dialogContext, false),
+                            child: const Text('Cancel'),
+                          ),
+                          TextButton(
+                            onPressed: () => Navigator.pop(dialogContext, true),
+                            child: const Text(
+                              'Delete',
+                              style: TextStyle(
+                                color: AppTheme.danger,
+                                fontWeight: FontWeight.w700,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    );
+                    if (confirmed == true && context.mounted) {
+                      context.read<BudgetProvider>().deleteExpense(expense.id);
+                    }
+                  },
+                ),
+              ],
+            ),
           ),
         );
       },
@@ -175,26 +315,195 @@ class _HistoryScreenState extends State<HistoryScreen> {
   }
 }
 
-/// Feature: pie chart shown directly on History when viewing "All" —
-/// no extra tap needed.
-class _InlineBreakdown extends StatelessWidget {
-  final List<MapEntry<ExpenseCategory, double>> entries;
-  final double total;
-  final String Function(ExpenseCategory) labelOf;
+class _SummaryCard extends StatelessWidget {
+  final String title;
+  final double amount;
+  final String? periodText;
+  final int count;
+  final double? saved;
 
-  const _InlineBreakdown({
-    required this.entries,
-    required this.total,
-    required this.labelOf,
+  const _SummaryCard({
+    required this.title,
+    required this.amount,
+    required this.periodText,
+    required this.count,
+    required this.saved,
   });
 
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.all(16),
+      width: double.infinity,
+      padding: const EdgeInsets.all(18),
+      decoration: BoxDecoration(
+        gradient: const LinearGradient(
+          colors: [AppTheme.primaryDark, Color(0xFF0B5A4B)],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+        borderRadius: BorderRadius.circular(20),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            title,
+            style: const TextStyle(
+              color: Colors.white70,
+              fontSize: 14,
+              fontWeight: FontWeight.w500,
+            ),
+          ),
+          const SizedBox(height: 4),
+          Text(
+            _peso(amount),
+            style: const TextStyle(
+              color: Colors.white,
+              fontSize: 34,
+              fontWeight: FontWeight.w800,
+            ),
+          ),
+          const SizedBox(height: 12),
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: [
+              if (periodText != null) _Pill(icon: Icons.event_rounded, text: periodText!),
+              _Pill(
+                icon: Icons.receipt_long_rounded,
+                text: '$count ${count == 1 ? 'transaction' : 'transactions'}',
+              ),
+              if (saved != null)
+                _Pill(
+                  icon: Icons.savings_rounded,
+                  text: '${_peso(saved!)} saved',
+                ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _Pill extends StatelessWidget {
+  final IconData icon;
+  final String text;
+
+  const _Pill({required this.icon, required this.text});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+      decoration: BoxDecoration(
+        color: Colors.white.withValues(alpha: 0.14),
+        borderRadius: BorderRadius.circular(20),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, size: 14, color: Colors.white),
+          const SizedBox(width: 6),
+          Text(
+            text,
+            style: const TextStyle(
+              color: Colors.white,
+              fontSize: 12,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _CategoryFilterRow extends StatelessWidget {
+  final ExpenseCategory? selected;
+  final ValueChanged<ExpenseCategory?> onSelected;
+
+  const _CategoryFilterRow({
+    required this.selected,
+    required this.onSelected,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return ListView(
+      scrollDirection: Axis.horizontal,
+      children: [
+        _FilterPill(
+          label: 'All',
+          selected: selected == null,
+          onTap: () => onSelected(null),
+        ),
+        for (final category in ExpenseCategory.values)
+          Padding(
+            padding: const EdgeInsets.only(left: 8),
+            child: _FilterPill(
+              label: '${category.emoji}  ${_categoryName(category)}',
+              selected: selected == category,
+              onTap: () => onSelected(category),
+            ),
+          ),
+      ],
+    );
+  }
+}
+
+class _FilterPill extends StatelessWidget {
+  final String label;
+  final bool selected;
+  final VoidCallback onTap;
+
+  const _FilterPill({
+    required this.label,
+    required this.selected,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: selected ? AppTheme.primaryDark : Colors.white,
+      shape: StadiumBorder(
+        side: BorderSide(
+          color: selected ? AppTheme.primaryDark : AppTheme.border,
+        ),
+      ),
+      child: InkWell(
+        customBorder: const StadiumBorder(),
+        onTap: onTap,
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 9),
+          child: Text(
+            label,
+            style: TextStyle(
+              fontSize: 13,
+              fontWeight: FontWeight.w600,
+              color: selected ? Colors.white : AppTheme.textDark,
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _InlineBreakdown extends StatelessWidget {
+  final List<MapEntry<ExpenseCategory, double>> entries;
+  final double total;
+
+  const _InlineBreakdown({required this.entries, required this.total});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(18),
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: BorderRadius.circular(20),
         border: Border.all(color: AppTheme.border),
       ),
       child: Column(
@@ -202,25 +511,34 @@ class _InlineBreakdown extends StatelessWidget {
         children: [
           const Text(
             'Spending Breakdown',
-            style: TextStyle(fontWeight: FontWeight.w900, color: AppTheme.textDark),
+            style: TextStyle(
+              fontSize: 16,
+              fontWeight: FontWeight.w700,
+              color: AppTheme.textDark,
+            ),
           ),
-          const SizedBox(height: 14),
+          const SizedBox(height: 2),
+          const Text(
+            'Where your money went',
+            style: TextStyle(fontSize: 12, color: AppTheme.textMuted),
+          ),
+          const SizedBox(height: 16),
           SizedBox(
-            height: 170,
+            height: 190,
             child: Stack(
               alignment: Alignment.center,
               children: [
                 PieChart(
                   PieChartData(
-                    centerSpaceRadius: 46,
-                    sectionsSpace: 2,
+                    centerSpaceRadius: 58,
+                    sectionsSpace: 3,
                     sections: [
                       for (final entry in entries)
                         PieChartSectionData(
                           value: entry.value,
                           color: categoryColors[entry.key],
                           showTitle: false,
-                          radius: 36,
+                          radius: 30,
                         ),
                     ],
                   ),
@@ -228,12 +546,15 @@ class _InlineBreakdown extends StatelessWidget {
                 Column(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    const Text('Total', style: TextStyle(fontSize: 10, color: AppTheme.textMuted)),
+                    const Text(
+                      'Total',
+                      style: TextStyle(fontSize: 12, color: AppTheme.textMuted),
+                    ),
                     Text(
-                      '₱${total.toStringAsFixed(0)}',
+                      _peso(total),
                       style: const TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.w900,
+                        fontSize: 22,
+                        fontWeight: FontWeight.w800,
                         color: AppTheme.textDark,
                       ),
                     ),
@@ -245,35 +566,55 @@ class _InlineBreakdown extends StatelessWidget {
           const SizedBox(height: 14),
           for (final entry in entries)
             Padding(
-              padding: const EdgeInsets.symmetric(vertical: 4),
+              padding: const EdgeInsets.symmetric(vertical: 6),
               child: Row(
                 children: [
                   Container(
-                    width: 10,
-                    height: 10,
+                    width: 12,
+                    height: 12,
                     decoration: BoxDecoration(
                       color: categoryColors[entry.key],
                       shape: BoxShape.circle,
                     ),
                   ),
-                  const SizedBox(width: 9),
+                  const SizedBox(width: 10),
                   Expanded(
                     child: Text(
-                      labelOf(entry.key),
-                      style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600),
+                      _categoryName(entry.key),
+                      style: const TextStyle(
+                        fontSize: 14,
+                        fontWeight: FontWeight.w500,
+                        color: AppTheme.textDark,
+                      ),
                     ),
                   ),
                   Text(
-                    '₱${entry.value.toStringAsFixed(0)}',
-                    style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w700),
+                    _peso(entry.value),
+                    style: const TextStyle(
+                      fontSize: 14,
+                      fontWeight: FontWeight.w700,
+                      color: AppTheme.textDark,
+                    ),
                   ),
                   const SizedBox(width: 10),
-                  SizedBox(
-                    width: 34,
+                  Container(
+                    width: 46,
+                    padding: const EdgeInsets.symmetric(vertical: 3),
+                    decoration: BoxDecoration(
+                      color: (categoryColors[entry.key] ?? Colors.grey)
+                          .withValues(alpha: 0.12),
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                    alignment: Alignment.center,
                     child: Text(
-                      total == 0 ? '0%' : '${(entry.value / total * 100).round()}%',
-                      textAlign: TextAlign.right,
-                      style: const TextStyle(fontSize: 9, color: AppTheme.textMuted),
+                      total == 0
+                          ? '0%'
+                          : '${(entry.value / total * 100).round()}%',
+                      style: const TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w700,
+                        color: AppTheme.textDark,
+                      ),
                     ),
                   ),
                 ],
@@ -285,62 +626,37 @@ class _InlineBreakdown extends StatelessWidget {
   }
 }
 
-class _CategoryFilterRow extends StatelessWidget {
-  final ExpenseCategory? selected;
-  final ValueChanged<ExpenseCategory?> onSelected;
-  final String Function(ExpenseCategory) labelOf;
+class _DayHeader extends StatelessWidget {
+  final String title;
+  final double total;
 
-  const _CategoryFilterRow({
-    required this.selected,
-    required this.onSelected,
-    required this.labelOf,
-  });
+  const _DayHeader({required this.title, required this.total});
 
   @override
   Widget build(BuildContext context) {
-    return SizedBox(
-      height: 36,
-      child: ListView(
-        scrollDirection: Axis.horizontal,
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(4, 0, 4, 10),
+      child: Row(
         children: [
-          _FilterChip(label: 'All', selected: selected == null, onTap: () => onSelected(null)),
-          for (final category in ExpenseCategory.values)
-            Padding(
-              padding: const EdgeInsets.only(left: 8),
-              child: _FilterChip(
-                label: labelOf(category),
-                selected: selected == category,
-                onTap: () => onSelected(category),
+          Expanded(
+            child: Text(
+              title,
+              style: const TextStyle(
+                fontSize: 14,
+                fontWeight: FontWeight.w700,
+                color: AppTheme.textDark,
               ),
             ),
+          ),
+          Text(
+            _peso(total),
+            style: const TextStyle(
+              fontSize: 13,
+              fontWeight: FontWeight.w600,
+              color: AppTheme.textMuted,
+            ),
+          ),
         ],
-      ),
-    );
-  }
-}
-
-class _FilterChip extends StatelessWidget {
-  final String label;
-  final bool selected;
-  final VoidCallback onTap;
-
-  const _FilterChip({required this.label, required this.selected, required this.onTap});
-
-  @override
-  Widget build(BuildContext context) {
-    return ChoiceChip(
-      label: Text(label),
-      selected: selected,
-      onSelected: (_) => onTap(),
-      selectedColor: AppTheme.primaryDark,
-      labelStyle: TextStyle(
-        color: selected ? Colors.white : AppTheme.textDark,
-        fontWeight: FontWeight.w600,
-      ),
-      backgroundColor: Colors.white,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(18),
-        side: BorderSide(color: selected ? Colors.transparent : AppTheme.border),
       ),
     );
   }
@@ -348,44 +664,151 @@ class _FilterChip extends StatelessWidget {
 
 class _ExpenseTile extends StatelessWidget {
   final Expense expense;
-  final String label;
   final VoidCallback onTap;
 
-  const _ExpenseTile({required this.expense, required this.label, required this.onTap});
+  const _ExpenseTile({required this.expense, required this.onTap});
 
   @override
   Widget build(BuildContext context) {
-    final hasNote = expense.note != null && expense.note!.trim().isNotEmpty;
+    final note = expense.note?.trim() ?? '';
     final color = categoryColors[expense.category] ?? Colors.grey;
+    final isSavings = expense.category == ExpenseCategory.savings;
 
     return Container(
       margin: const EdgeInsets.only(bottom: 10),
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(14),
+        borderRadius: BorderRadius.circular(16),
         border: Border.all(color: AppTheme.border),
       ),
-      child: ListTile(
+      child: InkWell(
         onTap: onTap,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
-        leading: Container(
-          width: 40,
-          height: 40,
-          decoration: BoxDecoration(color: color.withOpacity(0.15), shape: BoxShape.circle),
-          alignment: Alignment.center,
-          child: Text(expense.category.emoji, style: const TextStyle(fontSize: 18)),
+        borderRadius: BorderRadius.circular(16),
+        child: Padding(
+          padding: const EdgeInsets.all(12),
+          child: Row(
+            children: [
+              Container(
+                width: 46,
+                height: 46,
+                decoration: BoxDecoration(
+                  color: color.withValues(alpha: 0.14),
+                  shape: BoxShape.circle,
+                ),
+                alignment: Alignment.center,
+                child: Text(
+                  expense.category.emoji,
+                  style: const TextStyle(fontSize: 21),
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      _categoryName(expense.category),
+                      style: const TextStyle(
+                        fontSize: 15,
+                        fontWeight: FontWeight.w600,
+                        color: AppTheme.textDark,
+                      ),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      note.isEmpty ? 'No note' : note,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                        fontSize: 12.5,
+                        color: note.isEmpty
+                            ? const Color(0xFF9AA9A3)
+                            : AppTheme.textMuted,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(width: 8),
+              Text(
+                isSavings ? '+${_peso(expense.amount)}' : _peso(expense.amount),
+                style: TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.w700,
+                  color: isSavings ? AppTheme.primary : AppTheme.textDark,
+                ),
+              ),
+            ],
+          ),
         ),
-        title: Text(label, style: const TextStyle(fontWeight: FontWeight.w700, color: AppTheme.textDark)),
-        subtitle: Text(
-          hasNote
-              ? '${expense.note} • ${expense.date.month}/${expense.date.day}'
-              : '${expense.date.month}/${expense.date.day}/${expense.date.year}',
-          maxLines: 1,
-          overflow: TextOverflow.ellipsis,
+      ),
+    );
+  }
+}
+
+class _EmptyHistory extends StatelessWidget {
+  const _EmptyHistory();
+
+  @override
+  Widget build(BuildContext context) {
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(32),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(
+              width: 88,
+              height: 88,
+              decoration: BoxDecoration(
+                color: AppTheme.primary.withValues(alpha: 0.10),
+                shape: BoxShape.circle,
+              ),
+              child: const Icon(
+                Icons.receipt_long_rounded,
+                size: 40,
+                color: AppTheme.primary,
+              ),
+            ),
+            const SizedBox(height: 18),
+            const Text(
+              'No expenses yet',
+              style: TextStyle(
+                fontSize: 18,
+                fontWeight: FontWeight.w700,
+                color: AppTheme.textDark,
+              ),
+            ),
+            const SizedBox(height: 6),
+            const Text(
+              'Log your first expense from the Add tab and it will show up here.',
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                fontSize: 14,
+                height: 1.5,
+                color: AppTheme.textMuted,
+              ),
+            ),
+          ],
         ),
-        trailing: Text(
-          '₱${expense.amount.toStringAsFixed(0)}',
-          style: const TextStyle(fontWeight: FontWeight.w900, color: AppTheme.textDark),
+      ),
+    );
+  }
+}
+
+class _NoResults extends StatelessWidget {
+  final String label;
+
+  const _NoResults({required this.label});
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 28),
+      child: Center(
+        child: Text(
+          'No $label expenses yet.',
+          style: const TextStyle(fontSize: 14, color: AppTheme.textMuted),
         ),
       ),
     );

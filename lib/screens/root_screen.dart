@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'add_expense_screen.dart';
 import 'history_screen.dart';
 import 'home_screen.dart';
+import 'profile_screen.dart';
 import 'savings_screen.dart';
 
 class RootScreen extends StatefulWidget {
@@ -25,6 +26,7 @@ class _RootScreenState extends State<RootScreen> {
       onSaved: () => setState(() => _currentIndex = 0),
     ),
     const SavingsScreen(),
+    const ProfileScreen(),
   ];
 
   @override
@@ -46,8 +48,8 @@ class _RootScreenState extends State<RootScreen> {
         unselectedItemColor: const Color(0xFF78908A),
         type: BottomNavigationBarType.fixed,
         elevation: 12,
-        selectedFontSize: 10,
-        unselectedFontSize: 10,
+        selectedFontSize: 11,
+        unselectedFontSize: 11,
         items: const [
           BottomNavigationBarItem(
             icon: Icon(Icons.home_outlined),
@@ -68,6 +70,11 @@ class _RootScreenState extends State<RootScreen> {
             icon: Icon(Icons.flag_outlined),
             activeIcon: Icon(Icons.flag_rounded),
             label: 'Goals',
+          ),
+          BottomNavigationBarItem(
+            icon: Icon(Icons.person_outline_rounded),
+            activeIcon: Icon(Icons.person_rounded),
+            label: 'Profile',
           ),
         ],
       ),

@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'name_input_screen.dart';
@@ -23,6 +24,8 @@ class _LoginScreenState extends State<LoginScreen> {
   late bool _isSignUp = widget.initialIsSignUp;
 
   bool _isSubmitting = false;
+  bool _isGoogleLoading = false;
+  bool _isFacebookLoading = false;
   String? _errorMessage;
 
   @override
@@ -99,6 +102,65 @@ if (response.session != null) {
     }
   }
 
+  /// Feature: SSO via Supabase's Google OAuth provider. On web this
+  /// redirects in the same tab and comes back automatically. On
+  /// Android/iOS it needs the custom URL scheme registered in the
+  /// platform manifest (see the Android setup notes) so the app can
+  /// catch the redirect — AuthGate's auth-state listener then takes
+  /// over once the session exists, same as email/password login.
+  Future<void> _signInWithGoogle() async {
+    setState(() {
+      _isGoogleLoading = true;
+      _errorMessage = null;
+    });
+
+    try {
+      await SupabaseService.client.auth.signInWithOAuth(
+        OAuthProvider.google,
+       redirectTo: kIsWeb
+    ? Uri.base.origin
+    : 'io.supabase.walletwatch://login-callback/',
+      );
+    } on AuthException catch (e) {
+      if (mounted) setState(() => _errorMessage = e.message);
+    } catch (_) {
+      if (mounted) {
+        setState(() {
+          _errorMessage = 'Could not sign in with Google. Please try again.';
+        });
+      }
+    } finally {
+      if (mounted) setState(() => _isGoogleLoading = false);
+    }
+  }
+
+  /// Same flow as Google SSO, just with Facebook as the provider.
+  Future<void> _signInWithFacebook() async {
+    setState(() {
+      _isFacebookLoading = true;
+      _errorMessage = null;
+    });
+
+    try {
+      await SupabaseService.client.auth.signInWithOAuth(
+        OAuthProvider.facebook,
+        redirectTo: kIsWeb
+    ? Uri.base.origin
+    : 'io.supabase.walletwatch://login-callback/',
+      );
+    } on AuthException catch (e) {
+      if (mounted) setState(() => _errorMessage = e.message);
+    } catch (_) {
+      if (mounted) {
+        setState(() {
+          _errorMessage = 'Could not sign in with Facebook. Please try again.';
+        });
+      }
+    } finally {
+      if (mounted) setState(() => _isFacebookLoading = false);
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -153,7 +215,84 @@ if (response.session != null) {
                   ),
                 ),
 
-                const SizedBox(height: 36),
+                const SizedBox(height: 28),
+
+                // --- SSO ---
+                OutlinedButton(
+                  onPressed: (_isSubmitting ||
+                          _isGoogleLoading ||
+                          _isFacebookLoading)
+                      ? null
+                      : _signInWithGoogle,
+                  style: OutlinedButton.styleFrom(
+                    side: const BorderSide(color: Color(0xFFDDE7E5)),
+                  ),
+                  child: _isGoogleLoading
+                      ? const SizedBox(
+                          width: 20,
+                          height: 20,
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        )
+                      : Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: const [
+                            _GoogleGlyph(),
+                            SizedBox(width: 10),
+                            Text(
+                              'Continue with Google',
+                              style: TextStyle(fontWeight: FontWeight.w700),
+                            ),
+                          ],
+                        ),
+                ),
+
+                const SizedBox(height: 10),
+
+                OutlinedButton(
+                  onPressed: (_isSubmitting ||
+                          _isGoogleLoading ||
+                          _isFacebookLoading)
+                      ? null
+                      : _signInWithFacebook,
+                  style: OutlinedButton.styleFrom(
+                    side: const BorderSide(color: Color(0xFFDDE7E5)),
+                  ),
+                  child: _isFacebookLoading
+                      ? const SizedBox(
+                          width: 20,
+                          height: 20,
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        )
+                      : Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: const [
+                            _FacebookGlyph(),
+                            SizedBox(width: 10),
+                            Text(
+                              'Continue with Facebook',
+                              style: TextStyle(fontWeight: FontWeight.w700),
+                            ),
+                          ],
+                        ),
+                ),
+
+                const SizedBox(height: 18),
+
+                Row(
+                  children: [
+                    const Expanded(child: Divider()),
+                    Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 10),
+                      child: Text(
+                        'or',
+                        style: TextStyle(color: Colors.grey.shade500, fontSize: 12),
+                      ),
+                    ),
+                    const Expanded(child: Divider()),
+                  ],
+                ),
+
+                const SizedBox(height: 18),
 
                 const Text(
                   'Email',
@@ -255,6 +394,62 @@ if (response.session != null) {
               ],
             ),
           ),
+        ),
+      ),
+    );
+  }
+}
+
+/// A simple "G" glyph so the Google button doesn't need a bundled
+/// logo asset. Swap for Google's actual brand mark asset if you add
+/// one to your project later.
+class _GoogleGlyph extends StatelessWidget {
+  const _GoogleGlyph();
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: 20,
+      height: 20,
+      alignment: Alignment.center,
+      decoration: BoxDecoration(
+        shape: BoxShape.circle,
+        border: Border.all(color: Colors.grey.shade300),
+      ),
+      child: const Text(
+        'G',
+        style: TextStyle(
+          fontSize: 13,
+          fontWeight: FontWeight.w900,
+          color: Color(0xFF4285F4),
+        ),
+      ),
+    );
+  }
+}
+
+/// A simple "f" glyph so the Facebook button doesn't need a bundled
+/// logo asset. Swap for the real brand mark if you add one later.
+class _FacebookGlyph extends StatelessWidget {
+  const _FacebookGlyph();
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: 20,
+      height: 20,
+      alignment: Alignment.center,
+      decoration: const BoxDecoration(
+        shape: BoxShape.circle,
+        color: Color(0xFF1877F2),
+      ),
+      child: const Text(
+        'f',
+        style: TextStyle(
+          fontSize: 14,
+          fontWeight: FontWeight.w900,
+          color: Colors.white,
+          height: 1.1,
         ),
       ),
     );

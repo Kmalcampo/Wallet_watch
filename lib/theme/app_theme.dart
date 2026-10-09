@@ -19,6 +19,11 @@ class AppTheme {
   static const Color danger = Color(0xFFFF555C);
   static const Color warning = Color(0xFFE85D4E);
 
+  /// Bundled font (see pubspec.yaml > flutter > fonts). Plus Jakarta Sans
+  /// is used because it includes the peso sign (₱) and has clear,
+  /// evenly spaced digits, which matters on a money app.
+  static const String fontFamily = 'PlusJakartaSans';
+
   static ThemeData get themeData {
     return ThemeData(
       useMaterial3: true,
@@ -30,13 +35,20 @@ class AppTheme {
         brightness: Brightness.light,
       ),
 
-      fontFamily: 'Arial',
+      fontFamily: fontFamily,
 
       appBarTheme: const AppBarTheme(
         backgroundColor: Colors.transparent,
         elevation: 0,
+        scrolledUnderElevation: 0,
         foregroundColor: textDark,
         centerTitle: false,
+        titleTextStyle: TextStyle(
+          fontFamily: fontFamily,
+          fontSize: 22,
+          fontWeight: FontWeight.w700,
+          color: textDark,
+        ),
       ),
 
       cardTheme: CardThemeData(
@@ -60,6 +72,11 @@ class AppTheme {
         contentPadding: const EdgeInsets.symmetric(
           horizontal: 16,
           vertical: 15,
+        ),
+
+        hintStyle: const TextStyle(
+          fontSize: 14,
+          color: Color(0xFF9AA9A3),
         ),
 
         border: OutlineInputBorder(
@@ -103,7 +120,8 @@ class AppTheme {
           ),
 
           textStyle: const TextStyle(
-            fontWeight: FontWeight.w800,
+            fontSize: 15,
+            fontWeight: FontWeight.w700,
           ),
         ),
       ),
@@ -124,6 +142,11 @@ class AppTheme {
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(24),
           ),
+
+          textStyle: const TextStyle(
+            fontSize: 15,
+            fontWeight: FontWeight.w700,
+          ),
         ),
       ),
 
@@ -136,12 +159,13 @@ class AppTheme {
         elevation: 10,
 
         selectedLabelStyle: TextStyle(
-          fontSize: 10,
+          fontSize: 11,
           fontWeight: FontWeight.w700,
         ),
 
         unselectedLabelStyle: TextStyle(
-          fontSize: 10,
+          fontSize: 11,
+          fontWeight: FontWeight.w500,
         ),
       ),
     );
